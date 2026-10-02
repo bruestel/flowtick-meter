@@ -569,7 +569,9 @@ async function refreshOnce() {
   $("h-net").innerHTML = esc(n.state) + (n.ip ? " · " + esc(n.ip) : "") +
                          (n.rssi ? " · " + bars(n.rssi, 5) : "");
   $("h-mqtt").textContent = "MQTT " + (!mq.enabled ? "off" : mq.connected ? "connected" : "disconnected");
-  $("h-ver").textContent = info.firmware ? "v" + info.firmware : "";
+  /* A tag already starts with "v"; a bare version or commit hash gets one. */
+  const fw = info.firmware || "";
+  $("h-ver").textContent = !fw ? "" : /^v\d/.test(fw) ? fw : "v" + fw;
 
   $("m-total").textContent = (m.total_m3 ?? 0).toFixed(4);
   $("m-flow").textContent  = (m.flow_lmin ?? 0).toFixed(1) + " L/min";
