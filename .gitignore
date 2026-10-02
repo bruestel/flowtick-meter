@@ -1,0 +1,31 @@
+# PlatformIO
+firmware/.pio/
+
+# ESP-IDF component manager: restored from dependencies.lock, which is tracked
+firmware/managed_components/
+
+# ESP-IDF: the full sdkconfig is regenerated per environment from
+# sdkconfig.defaults on every build
+firmware/sdkconfig
+firmware/sdkconfig.*
+!firmware/sdkconfig.defaults
+
+# Generated web asset (tools/gen_ui_asset.py, pre-build hook)
+firmware/components/app_web/src/ui_asset.c
+
+# Build output (STLs under meters/*/stl/ are tracked on purpose)
+build/
+*.bin
+*.elf
+*.map
+compile_commands.json
+
+# OpenSCAD / slicer scratch
+*.gcode
+*.3mf
+
+# Editors and tools
+.vscode/
+.idea/
+__pycache__/
+.DS_Store

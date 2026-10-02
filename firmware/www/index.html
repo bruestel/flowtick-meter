@@ -1,0 +1,1335 @@
+<!doctype html>
+<!-- flowtick-meter web interface. Copyright 2026 Jonas Brüstel. SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>flowtick</title>
+<!-- A water drop with the scanning disc in it, half chrome, half black. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 3C32 3 9 29 9 42a23 23 0 0 0 46 0C55 29 32 3 32 3z' fill='%232563eb'/%3E%3Ccircle cx='32' cy='42' r='12' fill='%23fff'/%3E%3Cpath d='M32 30a12 12 0 0 1 0 24z' fill='%231a1d21'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f6f7f9; --card:#fff; --fg:#1a1d21; --muted:#6b7280; --line:#e3e6ea;
+  --accent:#2563eb; --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+  --trace:#2563eb; --hi:#b91c1c; --lo:#0369a1; --edge:#15803d;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#15171a; --card:#1d2024; --fg:#e8eaed; --muted:#9aa2ad; --line:#2c3138;
+    --accent:#60a5fa; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+    --trace:#60a5fa; --hi:#f87171; --lo:#38bdf8; --edge:#4ade80;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;
+  display:flex;flex-wrap:wrap;gap:12px;align-items:baseline}
+header h1{font-size:16px;margin:0;font-weight:600}
+header .meta{color:var(--muted);font-size:12px;display:flex;gap:12px;flex-wrap:wrap}
+nav{display:flex;gap:4px;padding:8px 16px 0;flex-wrap:wrap;background:var(--card)}
+nav button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);
+  padding:8px 12px;font:inherit;cursor:pointer;border-radius:4px 4px 0 0}
+nav button[aria-selected=true]{color:var(--fg);border-bottom-color:var(--accent);font-weight:600}
+main{padding:16px;max-width:900px;margin:0 auto}
+section[hidden]{display:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:16px;margin-bottom:16px}
+.card h2{margin:0 0 12px;font-size:14px;font-weight:600}
+.card h2 .sub{font-weight:400;color:var(--muted);margin-left:8px;font-size:12px}
+.big{font-variant-numeric:tabular-nums;font-size:34px;font-weight:600;letter-spacing:-.5px}
+.unit{font-size:16px;color:var(--muted);font-weight:400;margin-left:4px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.grp{margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}
+/* hidden has to win over the display of .grid and friends. */
+[hidden]{display:none!important}
+.card>.grp:first-of-type{margin-top:4px;padding-top:0;border-top:0}
+.grp h3{margin:0 0 4px;font-size:13px;font-weight:600}
+.grp .note{margin-top:4px}
+label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kv{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.num{font-variant-numeric:tabular-nums}
+label{display:block;margin:10px 0 4px;font-size:12px;color:var(--muted)}
+textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;
+  background:var(--bg);color:var(--fg);font:12px ui-monospace,monospace;resize:vertical}
+label.tgl{display:inline-flex;align-items:center;gap:10px;margin:0;overflow:visible;
+  font-size:13px;font-weight:600;color:var(--fg);cursor:pointer}
+label.tgl input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+label.tgl .sw{position:relative;flex:0 0 auto;width:36px;height:20px;border-radius:999px;
+  background:var(--line);transition:background .15s}
+label.tgl .sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;
+  border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+label.tgl input:checked+.sw{background:var(--accent)}
+label.tgl input:checked+.sw::after{transform:translateX(16px)}
+label.tgl input:focus-visible+.sw{outline:2px solid var(--accent);outline-offset:2px}
+input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;
+  background:var(--bg);color:var(--fg);font:inherit}
+button.act{background:var(--accent);color:#fff;border:0;border-radius:6px;padding:9px 14px;
+  font:inherit;font-weight:500;cursor:pointer}
+button.act.ghost{background:none;color:var(--accent);border:1px solid var(--line)}
+button.act.danger{background:var(--bad)}
+button.act:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:12px}
+.row>*{flex:1 1 140px}
+.row>button{flex:0 0 auto}
+canvas{width:100%;height:260px;display:block;background:var(--bg);
+  border:1px solid var(--line);border-radius:8px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:2px;vertical-align:middle;margin-right:5px}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;
+  border:1px solid var(--line)}
+.pill.ok{color:var(--ok)} .pill.bad{color:var(--bad)} .pill.warn{color:var(--warn)}
+.note{color:var(--muted);font-size:12px;margin-top:10px}
+.msg{margin-top:12px;padding:9px 12px;border-radius:6px;font-size:13px;display:none}
+.msg.show{display:block}
+.msg.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.msg.err{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td{padding:5px 0;border-bottom:1px solid var(--line)}
+td:last-child{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--fg);
+  padding:0;width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 64px)}
+dialog::backdrop{background:rgb(0 0 0 / .45)}
+.dlg-head{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.dlg-head h2{margin:0;font-size:15px;flex:1}
+.dlg-body{padding:8px 16px 16px;overflow:auto}
+.net{border-bottom:1px solid var(--line)}
+.net>button{all:unset;box-sizing:border-box;display:flex;gap:10px;align-items:center;width:100%;
+  padding:11px 2px;cursor:pointer}
+.net>button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.net .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.net .meta{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.net .form{padding:0 2px 12px}
+.bars{display:inline-block;vertical-align:-1px}
+.bars rect{fill:var(--line)}
+.bars rect.on{fill:var(--fg)}
+</style>
+
+</head>
+<body>
+
+<header>
+  <h1 id="devname">flowtick</h1>
+  <div class="meta">
+    <span id="h-net">–</span>
+    <span id="h-mqtt">–</span>
+    <span id="h-ver">–</span>
+  </div>
+</header>
+
+<nav>
+  <button data-tab="meter" aria-selected="true">Meter</button>
+  <button data-tab="tune" aria-selected="false">Tuning</button>
+  <button data-tab="conf" aria-selected="false">Settings</button>
+  <button data-tab="sys" aria-selected="false">System</button>
+</nav>
+
+<main>
+
+<!-- ------------------------------------------------------------- Meter -->
+<section id="tab-meter">
+  <div class="card">
+    <h2>Meter reading</h2>
+    <div class="big"><span id="m-total">–</span><span class="unit">m³</span></div>
+    <div class="grid" style="margin-top:18px">
+      <div><div class="kv">Flow</div><div class="num" id="m-flow">–</div></div>
+      <div><div class="kv">Continuous flow</div><div id="m-cont">–</div></div>
+      <div><div class="kv">Edges</div><div class="num" id="m-edges">–</div></div>
+      <div><div class="kv">Sensor</div><div id="m-online">–</div></div>
+      <div><div class="kv">Raw signal</div><div class="num" id="m-mv">–</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Water draws <span class="sub" id="e-sub"></span></h2>
+    <table id="e-table"><tbody></tbody></table>
+    <p class="note">Every edge is logged with its time in a flash ring that survives power
+    cuts and does not wear out. Edges less than a minute apart form one draw; litres use
+    the current volume per edge. Times before the clock was synced after a restart show
+    as the uptime of that boot.</p>
+    <div class="row">
+      <button class="act ghost" id="e-reload">Refresh</button>
+      <button class="act ghost" id="e-csv">Download CSV</button>
+      <button class="act danger" id="e-clear">Clear log</button>
+    </div>
+    <div class="msg" id="e-msg"></div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------- Tuning -->
+<section id="tab-tune" hidden>
+  <div class="card">
+    <h2>Raw signal <span class="sub">50 Hz, live</span></h2>
+    <canvas id="scope" width="880" height="260"></canvas>
+    <div class="legend">
+      <span><i style="background:var(--trace)"></i>Reflection</span>
+      <span><i style="background:var(--hi)"></i>upper threshold</span>
+      <span><i style="background:var(--lo)"></i>lower threshold</span>
+      <span><i style="background:var(--edge)"></i>detected edge</span>
+      <span id="s-state">–</span>
+    </div>
+
+    <div class="grid" style="margin-top:16px">
+      <div><div class="kv">Current</div><div class="num" id="s-now" style="font-size:22px;font-weight:600">–</div></div>
+      <div><div class="kv">Minimum</div><div class="num" id="s-min">–</div></div>
+      <div><div class="kv">Maximum</div><div class="num" id="s-max">–</div></div>
+      <div><div class="kv">Swing</div><div class="num" id="s-span">–</div></div>
+      <div><div class="kv">Rejected</div><div class="num" id="u-rej" title="crossings shorter than the dwell time: spikes, bounce">–</div></div>
+    </div>
+    <div class="row">
+      <button class="act ghost" id="s-reset">Reset min/max</button>
+      <button class="act ghost" id="s-calc">Derive thresholds from swing</button>
+    </div>
+    <p class="note">Target: a swing of at least 500 mV, signal between 300 and 2500 mV.
+    Reset before trying each new distance or resistor value.
+    Not enough swing: vary the distance, change the emitter resistor, tilt the
+    sensor by 10–15°, add a black divider between LED and phototransistor.</p>
+  </div>
+
+  <div class="card">
+    <h2>Edge detection and volume</h2>
+
+    <div class="grp">
+      <h3>Thresholds</h3>
+      <p class="note">Two, not one: without hysteresis the signal bounces at the
+      transition and every edge counts several times. Rule of thumb: 30 % and 70 %
+      of the swing -- "Derive thresholds from swing" above does exactly that.</p>
+      <div class="grid">
+        <div><label for="u-hi">Upper (mV)</label><input id="u-hi" type="number" min="1" max="3300"></div>
+        <div><label for="u-lo">Lower (mV)</label><input id="u-lo" type="number" min="0" max="3300"></div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <h3>Edge filter</h3>
+      <p class="note">A crossing counts only after lasting the dwell time; shorter
+      ones show up as rejected above. Edges closer than the minimum gap wait: at full
+      flow they are 0.58 s apart. If real edges get rejected, a threshold sits too
+      close to a sector's level.</p>
+      <div class="grid">
+        <div><label for="u-dw">Dwell (ms)</label><input id="u-dw" type="number" min="10" max="1000"></div>
+        <div><label for="u-me">Min. gap (ms)</label><input id="u-me" type="number" min="0" max="5000"></div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <h3>Volume per edge</h3>
+      <p class="note">From the bucket method: draw 10 L, see what was counted,
+      correct the factor. Expect 250, 500 or 1000 ml; an odd value usually means
+      spurious pulses.</p>
+      <div class="grid">
+        <div><label for="u-ml">Millilitres</label><input id="u-ml" type="number" min="1" max="100000"></div>
+      </div>
+    </div>
+
+    <div class="row"><button class="act" id="u-save">Save</button></div>
+    <div class="msg" id="u-msg"></div>
+  </div>
+</section>
+
+<!-- ----------------------------------------------------------- Settings -->
+<section id="tab-conf" hidden>
+  <div class="card">
+    <h2>Taking the adapter off</h2>
+    <p class="note">Pause first, so handling the adapter cannot count phantom litres.
+    On resume the device first reads which sector the sensor sees and only then
+    counts again. Unplugging or light falling in also stops counting by itself
+    after half a second, and it resumes 2 s after the signal is steady again.</p>
+    <div class="row"><button class="act ghost" id="p-toggle">Pause counting</button></div>
+    <div class="msg" id="p-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Match the mechanical register</h2>
+    <p class="note">Absolute, not a correction: enter the reading as shown. The red
+    digits are the decimals: <code>00044</code> and <code>2670</code>
+    make <code>44.2670</code>.</p>
+    <div class="row">
+      <div><label for="t-m3">Reading in m³</label>
+        <input id="t-m3" type="number" step="0.0001" min="0" max="99999" placeholder="44.2670"></div>
+      <button class="act" id="t-set">Apply</button>
+    </div>
+    <div class="msg" id="t-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>WiFi</h2>
+    <div id="w-status">–</div>
+    <div class="row"><button class="act" id="w-open">Choose network…</button></div>
+    <div class="msg" id="w-msg"></div>
+  </div>
+
+  <dialog id="w-dlg">
+    <div class="dlg-head">
+      <h2>Choose a network</h2>
+      <button class="act ghost" id="w-rescan">Rescan</button>
+      <button class="act ghost" id="w-close" aria-label="Close">✕</button>
+    </div>
+    <div class="dlg-body">
+      <div id="w-list"></div>
+      <div class="msg" id="w-dmsg"></div>
+    </div>
+  </dialog>
+
+  <div class="card">
+    <h2>MQTT <span class="sub" id="q-state"></span></h2>
+    <div class="grp">
+      <h3><label class="tgl"><input type="checkbox" role="switch" id="q-on"><span class="sw"></span>Publish to a broker</label></h3>
+      <p class="note" id="q-off-note">Off: nothing is sent. The settings below are kept.</p>
+    </div>
+    <div id="q-body">
+    <div class="grp">
+      <h3>Broker</h3>
+      <div class="grid">
+        <div><label for="q-host">Host</label><input id="q-host" placeholder="192.168.1.10" spellcheck="false" autocapitalize="off"></div>
+        <div><label for="q-tls">Connection</label>
+          <select id="q-tls"><option value="0">mqtt://</option><option value="1">mqtts://</option></select></div>
+        <div><label for="q-port">Port</label><input id="q-port" type="number" min="1" max="65535" value="1883"></div>
+        <div><label for="q-cid">Client ID</label><input id="q-cid" spellcheck="false" autocapitalize="off"></div>
+      </div>
+    </div>
+    <div class="grp" id="q-tls-grp" hidden>
+      <h3>Server certificate</h3>
+      <div class="grid">
+        <div><label for="q-verify">Check against</label>
+          <select id="q-verify">
+            <option value="bundle">Public authorities (built in)</option>
+            <option value="ca">Own CA certificate</option>
+            <option value="none">Do not check (insecure)</option>
+          </select></div>
+      </div>
+      <div id="q-ca-box" hidden><label for="q-ca">CA certificate (PEM)</label>
+        <textarea id="q-ca" rows="6" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea></div>
+      <p class="note">Public authorities fit a broker with a certificate from e.g. Let's
+      Encrypt or a cloud broker; the host must then be the name in its certificate. A
+      self-signed broker or one from your own CA needs its CA certificate. Without
+      checking, the connection is encrypted but anybody could pose as the broker.</p>
+    </div>
+    <div class="grp">
+      <h3><label class="tgl"><input type="checkbox" role="switch" id="q-auth"><span class="sw"></span>Login</label></h3>
+      <div class="grid" id="q-cred" hidden>
+        <div><label for="q-user">User</label><input id="q-user" spellcheck="false" autocapitalize="off" autocomplete="off"></div>
+        <div><label for="q-pass">Password</label><input id="q-pass" type="password" autocomplete="new-password"></div>
+      </div>
+      <p class="note" id="q-auth-note">Off: the device connects anonymously, and stored
+      credentials are deleted on Save.</p>
+    </div>
+    <div class="grp">
+      <h3>Topics</h3>
+      <div class="grid">
+        <div><label for="q-base">Topic root</label><input id="q-base" spellcheck="false" autocapitalize="off"></div>
+      </div>
+    </div>
+    <div class="grp">
+      <h3><label class="tgl"><input type="checkbox" role="switch" id="q-disc"><span class="sw"></span>Home Assistant discovery</label></h3>
+      <div class="grid" id="q-disc-box" hidden>
+        <div><label for="q-dpre">Discovery prefix</label><input id="q-dpre" placeholder="homeassistant" spellcheck="false" autocapitalize="off"></div>
+      </div>
+      <p class="note">Announces meter reading, flow and status, so Home Assistant creates
+      the device by itself.</p>
+    </div>
+    </div>
+    <div class="row"><button class="act" id="q-save">Save</button></div>
+    <div class="msg" id="q-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Radio</h2>
+    <div class="grid">
+      <div><label for="r-tx">Transmit power</label>
+        <select id="r-tx">
+          <option value="0">Maximum (20 dBm)</option>
+          <option value="17">17 dBm</option>
+          <option value="14">14 dBm</option>
+          <option value="11">11 dBm</option>
+          <option value="8">8 dBm</option>
+          <option value="5">5 dBm</option>
+          <option value="2">2 dBm</option>
+        </select></div>
+    </div>
+    <p class="note">Takes effect on Apply, no restart. Keep an eye on the signal level
+    top right while trying steps: every 3 dB less halves the transmit power. After a
+    brownout the firmware steps it down on its own.</p>
+    <div class="row"><button class="act" id="r-save">Apply</button></div>
+    <div class="msg" id="r-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Time</h2>
+    <div class="grid">
+      <div><label for="c-ntp">Time server</label>
+        <input id="c-ntp" placeholder="pool.ntp.org" spellcheck="false" autocapitalize="off"></div>
+      <div><label for="c-tz">Timezone</label><select id="c-tz"></select></div>
+    </div>
+    <p class="note">A built-in server always stands behind the one entered here, so a
+    wrong or vanished one costs nothing; left empty, only the built-in ones are used.
+    The device counts in UTC; the timezone sets how times are shown here.</p>
+    <div class="row"><button class="act" id="c-save">Apply</button></div>
+    <div class="msg" id="c-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Device and access</h2>
+    <div class="grid">
+      <div><label for="d-name">Device name</label><input id="d-name"></div>
+      <div><label for="a-user">User</label><input id="a-user" value="admin"></div>
+      <div><label for="a-pass">Password</label><input id="a-pass" type="password" placeholder="empty = protection off"></div>
+    </div>
+    <div class="row">
+      <button class="act" id="d-save">Save name</button>
+      <button class="act ghost" id="a-save">Set password</button>
+    </div>
+    <p class="note">The device name is also the mDNS hostname and the MQTT client ID.
+    The Home Assistant identity, by contrast, is tied to the MAC, so renaming the
+    device does not orphan any entities.</p>
+    <div class="msg" id="d-msg"></div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------- System -->
+<section id="tab-sys" hidden>
+  <div class="card">
+    <h2>Status LED</h2>
+    <p class="note">In normal operation, count the flashes; they repeat every 10 seconds.
+    While water flows, each detected edge adds a short extra flash.</p>
+    <table><tbody>
+      <tr><td>1 flash, pause</td><td>Online, all good</td></tr>
+      <tr><td>2 flashes, pause</td><td>WiFi configured but not connected</td></tr>
+      <tr><td>3 flashes, pause</td><td>Online, but the sensor signal is implausible:
+        sensor loose, IR LED dead or wiring wrong</td></tr>
+      <tr><td>Even fast blinking (5&nbsp;Hz)</td><td>Setup network open, waiting for WiFi credentials</td></tr>
+      <tr><td>Mostly on, short gaps</td><td>Firmware update running &mdash; do not cut power</td></tr>
+      <tr><td>Very fast flicker (10&nbsp;Hz)</td><td>Fatal error</td></tr>
+      <tr><td>Solid on</td><td>Booting, or BOOT button held: release now to keep the WiFi settings</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Firmware update</h2>
+    <p class="note">The new image first runs on probation: it has to pass its own
+    self-test (30 s without a crash, measuring, on the network, web server answering)
+    and this page confirms it once it is back. Otherwise the device falls back to the
+    previous firmware within two minutes. Keep this page open and do not disconnect
+    power during the update.</p>
+    <div class="row">
+      <div><label for="o-file">firmware.bin</label><input id="o-file" type="file" accept=".bin"></div>
+      <button class="act" id="o-send">Upload</button>
+    </div>
+    <div class="msg" id="o-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Status</h2>
+    <table id="sys-table"><tbody></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Restart and factory reset</h2>
+    <div class="row">
+      <button class="act ghost" id="x-restart">Restart</button>
+      <button class="act danger" id="x-reset">Erase all settings</button>
+    </div>
+    <div class="msg" id="x-msg"></div>
+  </div>
+</section>
+
+</main>
+
+<script>
+"use strict";
+
+// -------------------------------------------------------------- Helpers --
+const $ = (id) => document.getElementById(id);
+
+/* hideAfterMs = 0 keeps the message up, for ones that are being updated. */
+function say(el, text, ok, hideAfterMs = 6000) {
+  el.textContent = text;
+  el.className = "msg show " + (ok ? "ok" : "err");
+  clearTimeout(el._t);
+  if (hideAfterMs) el._t = setTimeout(() => { el.className = "msg"; }, hideAfterMs);
+}
+
+async function api(path, opts) {
+  const r = await fetch("/api/v1" + path, opts);
+  const text = await r.text();
+  let body = {};
+  try { body = text ? JSON.parse(text) : {}; } catch (e) { /* not JSON */ }
+  if (!r.ok) throw new Error(body.error || r.status + " " + r.statusText);
+  return body;
+}
+
+const post = (path, obj) =>
+  api(path, { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(obj || {}) });
+
+// ------------------------------------------------------------- Timezone --
+/* IANA name for the browser, POSIX rule for the device, whose C library knows
+   no names. A short list on purpose: the zones in use where this meter is
+   sold, and one per offset elsewhere. */
+const TZ_GROUPS = {
+  "Europe": {
+    "Europe/Berlin": "CET-1CEST,M3.5.0,M10.5.0/3", "Europe/Vienna": "CET-1CEST,M3.5.0,M10.5.0/3",
+    "Europe/Zurich": "CET-1CEST,M3.5.0,M10.5.0/3", "Europe/Amsterdam": "CET-1CEST,M3.5.0,M10.5.0/3",
+    "Europe/Brussels": "CET-1CEST,M3.5.0,M10.5.0/3", "Europe/Paris": "CET-1CEST,M3.5.0,M10.5.0/3",
+    "Europe/Rome": "CET-1CEST,M3.5.0,M10.5.0/3", "Europe/Madrid": "CET-1CEST,M3.5.0,M10.5.0/3",
+    "Europe/Copenhagen": "CET-1CEST,M3.5.0,M10.5.0/3", "Europe/Oslo": "CET-1CEST,M3.5.0,M10.5.0/3",
+    "Europe/Stockholm": "CET-1CEST,M3.5.0,M10.5.0/3", "Europe/Warsaw": "CET-1CEST,M3.5.0,M10.5.0/3",
+    "Europe/Prague": "CET-1CEST,M3.5.0,M10.5.0/3", "Europe/Budapest": "CET-1CEST,M3.5.0,M10.5.0/3",
+    "Europe/London": "GMT0BST,M3.5.0/1,M10.5.0", "Europe/Dublin": "GMT0IST,M3.5.0/1,M10.5.0",
+    "Europe/Lisbon": "WET0WEST,M3.5.0/1,M10.5.0", "Europe/Helsinki": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+    "Europe/Athens": "EET-2EEST,M3.5.0/3,M10.5.0/4", "Europe/Bucharest": "EET-2EEST,M3.5.0/3,M10.5.0/4",
+    "Europe/Kyiv": "EET-2EEST,M3.5.0/3,M10.5.0/4", "Europe/Istanbul": "<+03>-3",
+    "Europe/Moscow": "MSK-3",
+  },
+  "Americas": {
+    "America/New_York": "EST5EDT,M3.2.0,M11.1.0", "America/Chicago": "CST6CDT,M3.2.0,M11.1.0",
+    "America/Denver": "MST7MDT,M3.2.0,M11.1.0", "America/Phoenix": "MST7",
+    "America/Los_Angeles": "PST8PDT,M3.2.0,M11.1.0", "America/Anchorage": "AKST9AKDT,M3.2.0,M11.1.0",
+    "Pacific/Honolulu": "HST10", "America/Sao_Paulo": "<-03>3",
+  },
+  "Asia, Africa, Oceania": {
+    "Africa/Johannesburg": "SAST-2", "Asia/Dubai": "<+04>-4", "Asia/Kolkata": "IST-5:30",
+    "Asia/Bangkok": "<+07>-7", "Asia/Shanghai": "CST-8", "Asia/Singapore": "<+08>-8",
+    "Asia/Tokyo": "JST-9", "Australia/Perth": "AWST-8", "Australia/Sydney": "AEST-10AEDT,M10.1.0,M4.1.0/3",
+    "Pacific/Auckland": "NZST-12NZDT,M9.5.0,M4.1.0/3",
+  },
+  "Other": { "UTC": "UTC0" },
+};
+const TZ = Object.assign({}, ...Object.values(TZ_GROUPS));
+for (const [g, zones] of Object.entries(TZ_GROUPS)) {
+  const og = document.createElement("optgroup");
+  og.label = g;
+  for (const z of Object.keys(zones)) og.appendChild(new Option(z.replace(/_/g, " "), z));
+  $("c-tz").appendChild(og);
+}
+let tz = "Europe/Berlin";
+function fmtTime(ms) {
+  try { return new Date(ms).toLocaleString(undefined, { timeZone: tz }); }
+  catch (e) { return new Date(ms).toLocaleString(); }
+}
+
+// ----------------------------------------------------------------- Tabs --
+let tab = "meter";
+/* Every tab has its own address (#meter, #tuning, ...), so it can be
+   bookmarked or linked, and back and forward step through the tabs. */
+const TAB_HASH = { meter: "meter", tune: "tuning", conf: "settings", sys: "system" };
+function showTab(name, starting) {
+  if (!TAB_HASH[name]) name = "meter";
+  const was = tab;
+  tab = name;
+  for (const o of document.querySelectorAll("nav button"))
+    o.setAttribute("aria-selected", String(o.dataset.tab === tab));
+  for (const s of document.querySelectorAll("main section"))
+    s.hidden = s.id !== "tab-" + tab;
+  /* The stream only runs while somebody is watching: pushing 50 samples a
+     second through a WebSocket nobody has open is wasted airtime. Opening the
+     tab starts a fresh trace -- what happened while it was closed is not shown. */
+  if (tab === "tune" && (was !== "tune" || !wsWanted)) scopeReset();
+  scopeEnable(tab === "tune");
+  if (tab === "meter" && !starting) loadEdges();
+  if (tab === "conf" && !starting) loadMqtt();
+}
+function tabFromHash() {
+  const h = location.hash.slice(1);
+  return Object.keys(TAB_HASH).find((k) => TAB_HASH[k] === h) || "meter";
+}
+for (const b of document.querySelectorAll("nav button"))
+  b.onclick = () => { location.hash = TAB_HASH[b.dataset.tab]; };
+window.addEventListener("hashchange", () => showTab(tabFromHash()));
+
+// ---------------------------------------------------------- Status poll --
+let info = {};
+
+/* One at a time, and not forever: a request to an address the device has
+   just left can hang for a minute, and a new one every two seconds would pile
+   up behind it. */
+async function refresh() {
+  if (refresh.busy) return;
+  refresh.busy = true;
+  try { return await refreshOnce(); } finally { refresh.busy = false; }
+}
+
+async function refreshOnce() {
+  try {
+    info = await api("/info", { signal: AbortSignal.timeout(4000) });
+  } catch (e) {
+    $("h-net").textContent = "unreachable";
+    /* Switched to a network this page cannot see: the device would have come
+       back by now if the attempt had failed (20 s timeout, then it returns). */
+    if (joining && !handOver.running && Date.now() - joinStarted > 45000) {
+      say($("w-dmsg"), "The device is no longer reachable from here. It most likely joined " + joining +
+          ", which is a different network. Look up its IP address on that network's router.", false, 0);
+      joining = null;
+    }
+    return;
+  }
+  const n = info.net || {}, m = info.meter || {}, mq = info.mqtt || {};
+
+  $("devname").textContent = info.device || "flowtick";
+  $("h-net").innerHTML = esc(n.state) + (n.ip ? " · " + esc(n.ip) : "") +
+                         (n.rssi ? " · " + bars(n.rssi, 5) : "");
+  $("h-mqtt").textContent = "MQTT " + (!mq.enabled ? "off" : mq.connected ? "connected" : "disconnected");
+  $("h-ver").textContent = info.firmware ? "v" + info.firmware : "";
+
+  $("m-total").textContent = (m.total_m3 ?? 0).toFixed(4);
+  $("m-flow").textContent  = (m.flow_lmin ?? 0).toFixed(1) + " L/min";
+  /* A run is edges without 10 min of quiet; an hour of it is a leak warning. */
+  const runMin = Math.floor((m.flow_run_s ?? 0) / 60);
+  $("m-cont").innerHTML = m.continuous_flow
+    ? '<span class="pill bad">for ' + runMin + " min</span>"
+    : m.flow_run_s ? '<span class="pill">running ' + runMin + " min</span>" : '<span class="pill ok">no</span>';
+  $("m-edges").textContent = m.edges ?? 0;
+  $("m-mv").textContent    = (m.mv ?? 0) + " mV";
+
+  const mode = m.mode || (m.online ? "run" : "fault");
+  const pill = { run: ["ok", "counting"], resync: ["warn", "resynchronising"],
+                 fault: ["bad", "signal implausible"], paused: ["warn", "paused"] }[mode] ||
+               ["bad", mode];
+  $("m-online").innerHTML = '<span class="pill ' + pill[0] + '">' + pill[1] + "</span>";
+  $("p-toggle").textContent = mode === "paused" ? "Resume counting" : "Pause counting";
+  $("p-toggle").dataset.paused = mode === "paused" ? "1" : "";
+  $("u-rej").textContent = m.rejected ?? "–";
+
+  /* While the stream runs, draw() shows its latest sample instead. */
+  if (!ws) $("s-now").textContent = (m.mv ?? 0) + " mV";
+  $("s-min").textContent  = (m.mv_min ?? 0) + " mV";
+  $("s-max").textContent  = (m.mv_max ?? 0) + " mV";
+  const span = (m.mv_max ?? 0) - (m.mv_min ?? 0);
+  $("s-span").textContent = span + " mV";
+  $("s-span").style.color = span >= 500 ? "var(--ok)" : "var(--warn)";
+
+  thrHi = m.thr_hi_mv; thrLo = m.thr_lo_mv;
+  if (document.activeElement !== $("u-hi")) $("u-hi").value = m.thr_hi_mv;
+  if (document.activeElement !== $("u-lo")) $("u-lo").value = m.thr_lo_mv;
+  if (document.activeElement !== $("u-ml")) $("u-ml").value = m.ml_per_edge;
+  if (document.activeElement !== $("u-dw") && m.dwell_ms != null) $("u-dw").value = m.dwell_ms;
+  if (document.activeElement !== $("u-me") && m.min_edge_ms != null) $("u-me").value = m.min_edge_ms;
+
+  const hw = info.hardware || {}, t = info.time || {};
+  const rows = [
+    ["Board", hw.board], ["Chip", hw.chip],
+    ["ADC-Pin", "GPIO" + hw.adc_pin],
+    ["Uptime", fmtUptime(info.uptime_s)],
+    ["Free heap", (info.heap / 1024).toFixed(1) + " KiB"],
+    ["SSID", n.ssid || "–"], ["Channel", n.channel],
+    ["Time synced", t.synced ? "yes" + (t.server ? " (" + t.server + ")" : "") : "no"],
+  ];
+  $("sys-table").querySelector("tbody").innerHTML =
+    rows.map(([k, v]) => "<tr><td>" + esc(k) + "</td><td>" + esc(v ?? "–") + "</td></tr>").join("");
+
+  if (!$("d-name").value) $("d-name").value = info.device || "";
+
+  followJoin();
+  /* On the setup network there is only one thing to do. */
+  if (n.provisioning && !refresh.opened) {
+    refresh.opened = true;
+    document.querySelector('nav button[data-tab="conf"]').click();
+    $("w-open").click();
+  }
+
+  const sy = info.system || {};
+  /* Leave a chosen but not yet applied step alone. */
+  if (document.activeElement !== $("r-tx") && !$("r-tx").dataset.dirty) {
+    const v = String(sy.tx_power_dbm ?? 0);
+    /* A brownout can set a value the list does not have. */
+    if (![...$("r-tx").options].some(o => o.value === v))
+      $("r-tx").add(new Option(v + " dBm", v));
+    $("r-tx").value = v;
+  }
+  if (sy.tz_name) tz = sy.tz_name;
+  if (!$("c-tz").dataset.dirty && document.activeElement !== $("c-tz")) {
+    if (sy.tz_name && !TZ[sy.tz_name]) $("c-tz").add(new Option(sy.tz_name, sy.tz_name));
+    if (sy.tz_name) $("c-tz").value = sy.tz_name;
+  }
+  if (!$("c-ntp").dataset.dirty && document.activeElement !== $("c-ntp") && sy.ntp_server != null)
+    $("c-ntp").value = sy.ntp_server;
+}
+
+// ------------------------------------------------------------- Edge log --
+/* A draw ends after a minute without an edge. Short enough that the kettle
+   and the shower after it stay apart, long enough that a slow trickle, which
+   turns the disc once every 20 or 30 seconds, is still one draw. */
+const DRAW_GAP_MS = 60000;
+let edges = [];
+
+async function loadEdges() {
+  try {
+    const r = await api("/edges?limit=0");
+    edges = r.edges || [];
+    renderEdges(r.total ?? edges.length);
+  } catch (e) { say($("e-msg"), e.message, false); }
+}
+
+function fmtEdgeTime(t, synced, boot) {
+  if (synced) return fmtTime(t);
+  return "boot " + boot + ", +" + fmtUptime(t / 1000);
+}
+
+function draws() {
+  const out = [];
+  for (const [t, synced, boot] of edges) {
+    const d = out[out.length - 1];
+    if (d && d.boot === boot && d.synced === !!synced && t - d.end <= DRAW_GAP_MS) {
+      d.end = t; d.n++;
+    } else {
+      out.push({ start: t, end: t, n: 1, synced: !!synced, boot });
+    }
+  }
+  return out;
+}
+
+function renderEdges(total) {
+  const ml = +(info.meter?.ml_per_edge ?? 500);
+  const list = draws().reverse().slice(0, 30);
+  $("e-sub").textContent = total + " edges logged";
+  $("e-table").querySelector("tbody").innerHTML = list.length
+    ? list.map(d => {
+        const litres = d.n * ml / 1000;
+        const secs = Math.max(1, (d.end - d.start) / 1000);
+        return "<tr><td>" + fmtEdgeTime(d.start, d.synced, d.boot) + "</td><td>" +
+               (d.n > 1 ? fmtDuration(secs) : "–") + "</td><td>" + litres.toFixed(1) + " L</td></tr>";
+      }).join("")
+    : "<tr><td>No edges logged yet</td><td></td></tr>";
+}
+
+function fmtDuration(s) {
+  s = Math.round(s);
+  return s < 60 ? s + " s" : Math.floor(s / 60) + " min " + (s % 60) + " s";
+}
+
+$("e-reload").onclick = loadEdges;
+
+$("e-csv").onclick = async () => {
+  try {
+    const r = await api("/edges?limit=0");
+    const rows = ["time_iso,epoch_ms,synced,boot,uptime_ms"];
+    for (const [t, synced, boot] of r.edges || [])
+      rows.push(synced ? [new Date(t).toISOString(), t, 1, boot, ""].join(",")
+                       : ["", "", 0, boot, t].join(","));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([rows.join("\n") + "\n"], { type: "text/csv" }));
+    a.download = (info.device || "flowtick") + "-edges.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) { say($("e-msg"), e.message, false); }
+};
+
+$("e-clear").onclick = async () => {
+  if (!confirm("Erase the whole edge log? The meter reading is not affected.")) return;
+  try { await api("/edges", { method: "DELETE" }); say($("e-msg"), "Log cleared", true); loadEdges(); }
+  catch (e) { say($("e-msg"), e.message, false); }
+};
+
+function fmtUptime(s) {
+  s = s | 0;
+  const d = (s / 86400) | 0, h = ((s % 86400) / 3600) | 0, m = ((s % 3600) / 60) | 0;
+  return d ? `${d} d ${h} h` : h ? `${h} h ${m} min` : `${m} min`;
+}
+
+// ---------------------------------------------------------- Oscilloscope --
+/* A fixed-length ring buffer, so a window left open for hours does not
+   quietly eat memory. At 50 Hz, 900 points are a good 18 seconds. */
+const CAP = 900;
+const buf = new Int16Array(CAP);
+const edg = new Uint8Array(CAP);
+const tsb = new Float64Array(CAP);   // device time of each sample, ms
+let head = 0, filled = 0;
+let thrHi = 2200, thrLo = 1200;
+let ws = null, wsWanted = false, lastSeq = -1;
+
+/* Playout clock: the samples carry the device's time, the network delivers
+   them in clumps. Mapping device time onto the local clock with the smallest
+   delay seen lately, and drawing a fixed 300 ms behind that, lets the trace
+   run evenly instead of jumping with every clump. */
+const PLAYOUT_MS = 300;
+let clockOff = null, winMin = Infinity, winStart = 0;
+function noteClock(ts) {
+  const now = performance.now(), off = now - ts;
+  /* A smaller delay is taken at once. A larger one only as the minimum of a
+     5 s window, so drift and a restarted device (whose clock begins at zero)
+     are followed without one late clump pulling the trace back. */
+  if (clockOff === null || off < clockOff) clockOff = off;
+  winMin = Math.min(winMin, off);
+  if (now - winStart > 5000) { clockOff = winMin; winMin = Infinity; winStart = now; }
+}
+
+function pushSample(mv, edge, ts) {
+  buf[head] = mv; edg[head] = edge ? 1 : 0; tsb[head] = ts;
+  noteClock(ts);
+  head = (head + 1) % CAP;
+  if (filled < CAP) filled++;
+}
+
+/* Higher than any sequence number: asks the server to replay nothing. */
+const SINCE_NOW = 4294967295;
+
+/* Empty trace, and from the next connect on only what arrives live. */
+function scopeReset() {
+  wsClose();
+  head = 0; filled = 0;
+  clockOff = null; winMin = Infinity; winStart = 0;
+  lastSeq = SINCE_NOW;
+  $("s-now").textContent = "–";
+}
+
+function scopeEnable(on) {
+  if (on === wsWanted) return;
+  wsWanted = on;
+  post("/scope", { on }).catch(() => {});
+  if (on) wsOpen(); else wsClose();
+}
+
+function wsOpen() {
+  if (ws) return;
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  ws = new WebSocket(proto + "//" + location.host + "/api/v1/ws");
+  ws.onopen = () => {
+    $("s-state").textContent = "connected";
+    wsLast = performance.now();
+    /* After a restart the device has the stream switched off again: ask for
+       it on every connect, not only when the tab is opened. */
+    post("/scope", { on: true }).catch(() => {});
+    /* The server replays from its ring whatever accumulated since lastSeq --
+       so a reconnect continues the graph instead of clearing it. Right after
+       the tab was opened lastSeq is SINCE_NOW, and nothing old comes back. */
+    ws.send(JSON.stringify({ since: lastSeq }));
+  };
+  ws.onclose = () => {
+    ws = null;
+    $("s-state").textContent = "disconnected";
+    if (wsWanted) setTimeout(wsOpen, 1500);
+  };
+  ws.onerror = () => { $("s-state").textContent = "error"; };
+  ws.onmessage = (ev) => {
+    let data;
+    try { data = JSON.parse(ev.data); } catch (e) { return; }
+    wsLast = performance.now();
+    /* Live samples come bundled as an array, replayed ones and notes singly. */
+    for (const m of Array.isArray(data) ? data : [data]) {
+      if (m.t === "s") { lastSeq = m.s; pushSample(m.v, m.e, m.ts); }
+      else if (m.t === "gap")  $("s-state").textContent = "gap in the trace";
+      else if (m.t === "drop") $("s-state").textContent = m.n + " samples dropped";
+    }
+  };
+}
+
+/* Watchdog: a connection that died without a close event -- device restart,
+   WiFi switch -- can sit silent for minutes before the browser notices. At
+   50 samples a second, 3 s without anything means it is gone. */
+let wsLast = 0;
+setInterval(() => {
+  if (!wsWanted) return;
+  if (!ws) { wsOpen(); return; }
+  if (ws.readyState === WebSocket.OPEN && performance.now() - wsLast > 3000) {
+    $("s-state").textContent = "stalled, reconnecting";
+    wsClose();
+    wsOpen();
+  }
+}, 1000);
+
+function wsClose() {
+  if (!ws) return;
+  const w = ws; ws = null;
+  w.onclose = null;
+  w.close();
+}
+
+const cv = $("scope");
+const cx = cv.getContext("2d");
+
+function css(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/* The live value from the stream: every sample would be unreadable at 50 Hz,
+   so the text follows at about five updates a second. */
+let nowShown = 0;
+function showNow() {
+  const t = performance.now();
+  if (!ws || !filled || t - nowShown < 200) return;
+  nowShown = t;
+  $("s-now").textContent = buf[(head - 1 + CAP) % CAP] + " mV";
+}
+
+function draw() {
+  showNow();
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== W * dpr || cv.height !== H * dpr) {
+    cv.width = W * dpr; cv.height = H * dpr;
+  }
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx.clearRect(0, 0, W, H);
+
+  /* Fixed 0..3300 mV scale instead of autoscaling: a graph that tracks itself
+     looks the same with 20 mV of noise as with an 800 mV swing -- and that
+     difference is exactly what you are looking for here. */
+  const VMAX = 3300;
+  const y = (mv) => H - (mv / VMAX) * H;
+
+  cx.strokeStyle = css("--line"); cx.lineWidth = 1;
+  cx.fillStyle = css("--muted"); cx.font = "10px system-ui";
+  for (let v = 0; v <= VMAX; v += 500) {
+    cx.beginPath(); cx.moveTo(0, y(v)); cx.lineTo(W, y(v)); cx.stroke();
+    cx.fillText(v + " mV", 4, y(v) - 3);
+  }
+
+  for (const [v, c] of [[thrHi, css("--hi")], [thrLo, css("--lo")]]) {
+    cx.strokeStyle = c; cx.setLineDash([5, 4]); cx.lineWidth = 1.5;
+    cx.beginPath(); cx.moveTo(0, y(v)); cx.lineTo(W, y(v)); cx.stroke();
+    cx.setLineDash([]);
+  }
+
+  if (filled > 1 && clockOff !== null) {
+    /* Time axis, not sample index: the right edge is "now" on the playout
+       clock, the window as long as the ring holds at 50 Hz. */
+    const SPAN = CAP * 20;
+    const tEnd = performance.now() - clockOff - PLAYOUT_MS, tStart = tEnd - SPAN;
+    const xOf = (ts) => ((ts - tStart) / SPAN) * W;
+    const idx = (i) => (head - filled + i + CAP * 2) % CAP;
+
+    cx.strokeStyle = css("--edge"); cx.lineWidth = 1;
+    for (let i = 0; i < filled; i++) {
+      const k = idx(i), ts = tsb[k];
+      if (!edg[k] || ts < tStart || ts > tEnd) continue;
+      const x = xOf(ts);
+      cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, H); cx.stroke();
+    }
+
+    cx.strokeStyle = css("--trace"); cx.lineWidth = 1.8;
+    cx.beginPath();
+    let started = false;
+    for (let i = 0; i < filled; i++) {
+      const k = idx(i), ts = tsb[k];
+      if (ts < tStart || ts > tEnd) continue;
+      const x = xOf(ts), v = y(buf[k]);
+      started ? cx.lineTo(x, v) : cx.moveTo(x, v);
+      started = true;
+    }
+    cx.stroke();
+  }
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+// ------------------------------------------------------------- Actions --
+$("t-set").onclick = async () => {
+  const m3 = parseFloat($("t-m3").value);
+  if (!isFinite(m3)) return say($("t-msg"), "Please enter a meter reading", false);
+  try { await post("/meter/total", { m3 }); say($("t-msg"), "Applied", true); refresh(); }
+  catch (e) { say($("t-msg"), e.message, false); }
+};
+
+$("s-reset").onclick = () => post("/minmax/reset").then(refresh).catch(() => {});
+
+$("s-calc").onclick = () => {
+  const m = info.meter || {};
+  const span = (m.mv_max ?? 0) - (m.mv_min ?? 0);
+  if (span < 100) return say($("u-msg"), "Swing too small, adjust the sensor first", false);
+  $("u-lo").value = Math.round(m.mv_min + 0.30 * span);
+  $("u-hi").value = Math.round(m.mv_min + 0.70 * span);
+  say($("u-msg"), "Suggestion from the swing filled in, not saved yet", true);
+};
+
+$("p-toggle").onclick = async () => {
+  const on = !$("p-toggle").dataset.paused;
+  try {
+    await post("/meter/pause", { on });
+    say($("p-msg"), on ? "Paused -- the adapter can come off" : "Resumed -- resynchronising", true);
+    refresh();
+  } catch (e) { say($("p-msg"), e.message, false); }
+};
+
+$("u-save").onclick = async () => {
+  try {
+    await post("/tuning", {
+      thr_hi_mv: +$("u-hi").value, thr_lo_mv: +$("u-lo").value,
+      ml_per_edge: +$("u-ml").value, dwell_ms: +$("u-dw").value,
+      min_edge_ms: +$("u-me").value });
+    say($("u-msg"), "Saved", true); refresh();
+  } catch (e) { say($("u-msg"), e.message, false); }
+};
+
+// ---------------------------------------------------------- WiFi dialog --
+let nets = [];          // last scan
+let picked = null;      // ssid whose form is open; "" = other network
+let joining = null;     // ssid we asked the device to try
+let joinStarted = 0;
+
+const esc = (t) => String(t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+/* Signal strength as bars; the dBm stay in the tooltip and for screen
+   readers. Laid out in whole device pixels and drawn with crisp edges: at
+   a display scale like 125 % a 3 px bar is 3.75 device pixels, and each one
+   gets rounded or blurred differently. With integer widths and gaps every
+   edge is off the grid by the same amount, so all bars round alike. Five in the header, where it is the one thing worth watching
+   while moving the device around; four in the network list. Above -55 dBm
+   is full, then one bar less per 7 dBm (5) or 10 dBm (4). */
+function bars(rssi, count = 4) {
+  const step = count === 5 ? 7 : 10;
+  const n = Math.max(1, Math.min(count, count - Math.ceil((-55 - rssi) / step)));
+  const label = rssi + " dBm";
+  const d = window.devicePixelRatio || 1;
+  const w = Math.max(2, Math.round(3 * d)), gap = Math.max(1, Math.round(2 * d)), h = Math.round(12 * d);
+  const lo = Math.round(4 * d);
+  const rects = Array.from({ length: count }, (_, i) => {
+    const bh = lo + Math.round(i * (h - lo) / (count - 1));
+    return '<rect class="' + (i < n ? "on" : "") + '" x="' + i * (w + gap) + '" y="' + (h - bh) +
+           '" width="' + w + '" height="' + bh + '"/>';
+  }).join("");
+  const vw = count * (w + gap) - gap;
+  return '<svg class="bars" viewBox="0 0 ' + vw + " " + h + '" width="' + vw / d + '" height="' + h / d +
+         '" shape-rendering="crispEdges" role="img" aria-label="' + label + '"><title>' + label + "</title>" +
+         rects + "</svg>";
+}
+
+/* The network the device is on, if any. During a successful test that is the
+   one it just joined; the setup network does not count. */
+function currentSsid() {
+  const n = info.net || {}, t = n.test || {};
+  if (t.state === "ok" && t.restart_in_s > 0) return t.ssid;
+  return n.state === "connected" ? n.ssid : null;
+}
+
+function renderWifiStatus() {
+  const n = info.net || {}, t = n.test || {};
+  let html;
+  if (t.state === "testing")
+    html = 'Connecting to <b>' + esc(t.ssid) + '</b>…';
+  else if (t.state === "ok" && t.restart_in_s > 0)
+    html = '<span class="pill ok">Connected</span> to <b>' + esc(t.ssid) + '</b> · ' + esc(t.ip) +
+           '<div class="note">This page moves over to the new address by itself.</div>';
+  else if (n.state === "connected")
+    html = '<span class="pill ok">Connected</span> to <b>' + esc(n.ssid) + '</b> · ' + n.rssi + ' dBm';
+  else if (n.provisioning)
+    html = '<span class="pill warn">Not connected</span>, setup network open';
+  else
+    html = '<span class="pill warn">' + esc(n.state || "–") + '</span>' + (n.ssid ? " " + esc(n.ssid) : "");
+  $("w-status").innerHTML = html;
+}
+
+function renderNets() {
+  const cur = currentSsid(), t = (info.net || {}).test || {};
+  const rows = nets.map(n => {
+    const connected = n.ssid === cur;
+    let form = "";
+    if (picked === n.ssid && !connected) {
+      const busy = t.state === "testing" && t.ssid === n.ssid;
+      form = '<div class="form">' +
+             (n.secure ? '<label for="w-pw">Password</label><input id="w-pw" type="password" autocomplete="current-password">' : "") +
+             '<div class="row"><button class="act" id="w-join"' + (busy ? " disabled" : "") + '>' +
+             (busy ? "Connecting…" : "Connect") + '</button></div></div>';
+    }
+    return '<div class="net"><button data-ssid="' + esc(n.ssid) + '">' +
+           '<span class="name">' + esc(n.ssid) + '</span>' +
+           (connected ? '<span class="pill ok">Connected</span>' : "") +
+           '<span class="meta">' + (n.secure ? "🔒 " : "") + '</span>' + bars(n.rssi) +
+           "</button>" + form + "</div>";
+  });
+  const other = picked === ""
+    ? '<div class="form"><label for="w-os">Network name</label><input id="w-os">' +
+      '<label for="w-pw">Password</label><input id="w-pw" type="password">' +
+      '<div class="row"><button class="act" id="w-join">Connect</button></div></div>'
+    : "";
+  rows.push('<div class="net"><button data-ssid=""><span class="name">Other network…</span></button>' + other + "</div>");
+  $("w-list").innerHTML = rows.join("");
+
+  for (const b of $("w-list").querySelectorAll(".net>button"))
+    b.onclick = () => {
+      const s = b.dataset.ssid;
+      if (s && s === currentSsid()) return;   // nothing to do for the one we are on
+      picked = picked === s ? null : s;
+      renderNets();
+      const f = $("w-os") || $("w-pw");
+      if (f) f.focus();
+    };
+  if ($("w-join")) $("w-join").onclick = join;
+  if ($("w-pw")) $("w-pw").onkeydown = (e) => { if (e.key === "Enter") join(); };
+}
+
+async function scanNets() {
+  $("w-rescan").disabled = true;
+  $("w-list").innerHTML = '<p class="note">Scanning…</p>';
+  try {
+    nets = (await api("/wifi/scan")).networks || [];
+    renderNets();
+  } catch (e) {
+    $("w-list").innerHTML = "";
+    say($("w-dmsg"), e.message, false);
+    renderNets();
+  } finally { $("w-rescan").disabled = false; }
+}
+
+async function join() {
+  const ssid = picked === "" ? $("w-os").value.trim() : picked;
+  const password = $("w-pw") ? $("w-pw").value : "";
+  if (!ssid) return say($("w-dmsg"), "Enter the network name", false);
+  try {
+    const r = await post("/wifi/connect", { ssid, password });
+    if (r.restarting) {
+      say($("w-dmsg"), "Switching to " + ssid + ". The device restarts; its new IP address " +
+          "comes from that network's router.", true, 0);
+      return;
+    }
+    joining = ssid;
+    joinStarted = Date.now();
+    if (!(info.net || {}).provisioning)
+      say($("w-dmsg"), "Switching to " + ssid + "… this page loses the device for a few seconds.", true, 0);
+    await refresh();
+  } catch (e) { say($("w-dmsg"), e.message, false); }
+}
+
+/* After a successful join: count down while the setup network is still up,
+   then knock on the new address until the device answers there and move the
+   page over. Knocking rather than jumping at the end of the countdown,
+   because the device restarts first and a phone takes a moment to get back
+   onto its usual network once the setup network is gone. A no-cors request
+   cannot be read, but it fails only when nothing answers -- which is all
+   this needs to know. */
+function handOver(ip, secs) {
+  if (!ip || handOver.running) return;
+  handOver.running = true;
+  const url = "http://" + ip + "/";
+  const until = Date.now() + (secs > 0 ? (secs + 5) * 1000 : 0);   // + the restart itself
+  const note = (text) => say($("w-dmsg"), text, true, 0);
+  const tick = async () => {
+    const left = Math.ceil((until - Date.now()) / 1000);
+    if (left > 0) {
+      note("Connected. Moving to " + url + " in " + left + " s…");
+      return setTimeout(tick, 1000);
+    }
+    note("Waiting for the device at " + url + " …");
+    try {
+      await fetch(url + "api/v1/health", { mode: "no-cors", cache: "no-store",
+                                           signal: AbortSignal.timeout(2500) });
+      location.href = url;
+    } catch (e) { setTimeout(tick, 2000); }
+  };
+  tick();
+}
+
+/* Called from refresh(): follows a running test and reports how it ended. */
+function followJoin() {
+  const t = (info.net || {}).test || {};
+  renderWifiStatus();
+  if (!joining || t.ssid !== joining) return;
+  if (t.state === "ok") {
+    joining = null; picked = null;
+    if (t.ip && t.ip !== location.hostname) handOver(t.ip, t.restart_in_s);
+    else say($("w-dmsg"), "Connected to " + t.ssid + " · " + t.ip, true);
+  } else if (t.state === "failed") {
+    say($("w-dmsg"), "Could not connect: " + t.error, false);
+    joining = null;
+  }
+  /* Only on a change: redrawing on every poll would wipe a typed password. */
+  if ($("w-dlg").open && t.state !== followJoin.last) renderNets();
+  followJoin.last = t.state;
+}
+
+$("w-open").onclick = () => { picked = null; $("w-dlg").showModal(); scanNets(); };
+$("w-close").onclick = () => $("w-dlg").close();
+$("w-rescan").onclick = scanNets;
+
+/* The stored settings, shown as they are and left alone once edited. */
+let mqttCfg = null;
+const qDirty = () => $("q-save").dataset.dirty === "1";
+function mqttShowParts() {
+  const tls = $("q-tls").value === "1";
+  $("q-tls-grp").hidden = !tls;
+  $("q-ca-box").hidden = !tls || $("q-verify").value !== "ca";
+  $("q-cred").hidden = !$("q-auth").checked;
+  $("q-auth-note").hidden = $("q-auth").checked;
+  $("q-body").hidden = !$("q-on").checked;
+  $("q-off-note").hidden = $("q-on").checked;
+  $("q-disc-box").hidden = !$("q-disc").checked;
+}
+async function loadMqtt() {
+  if (qDirty()) return;
+  try { mqttCfg = await api("/config/mqtt"); } catch (e) { return; }
+  const c = mqttCfg;
+  $("q-host").value = c.host || "";
+  $("q-tls").value = c.tls ? "1" : "0";
+  $("q-port").value = c.port || (c.tls ? 8883 : 1883);
+  $("q-cid").value = c.client_id || "";
+  $("q-cid").placeholder = c.client_id_default || "";
+  $("q-verify").value = c.tls_insecure ? "none" : c.ca_cert ? "ca" : "bundle";
+  $("q-ca").value = c.ca_cert || "";
+  $("q-auth").checked = !!c.auth;
+  $("q-user").value = c.user || "";
+  $("q-pass").value = "";
+  $("q-pass").placeholder = c.has_password ? "stored, leave empty to keep" : "";
+  $("q-base").value = c.base || "";
+  $("q-on").checked = !!c.enabled;
+  $("q-disc").checked = c.discovery !== false;
+  $("q-dpre").value = c.discovery_prefix || "";
+  $("q-state").textContent = !c.enabled ? "off" : c.connected ? "connected" : "not connected";
+  mqttShowParts();
+}
+for (const id of ["q-host", "q-port", "q-cid", "q-ca", "q-user", "q-pass", "q-base", "q-dpre"])
+  $(id).addEventListener("input", () => { $("q-save").dataset.dirty = "1"; });
+for (const id of ["q-on", "q-tls", "q-verify", "q-auth", "q-disc"])
+  $(id).addEventListener("change", () => { $("q-save").dataset.dirty = "1"; mqttShowParts(); });
+/* Switching the protocol moves a default port along, but not a chosen one. */
+$("q-tls").addEventListener("change", () => {
+  const p = $("q-port").value;
+  if (p === "1883" || p === "8883" || !p) $("q-port").value = $("q-tls").value === "1" ? 8883 : 1883;
+});
+
+$("q-save").onclick = async () => {
+  const tls = $("q-tls").value === "1", verify = $("q-verify").value;
+  const host = $("q-host").value.trim();
+  const body = {
+    enabled: $("q-on").checked, host, tls, port: +$("q-port").value,
+    client_id: $("q-cid").value.trim(),
+    tls_insecure: tls && verify === "none",
+    ca_cert: tls && verify === "ca" ? $("q-ca").value.trim() : "",
+    auth: $("q-auth").checked,
+    base: $("q-base").value.trim(), discovery: $("q-disc").checked,
+    discovery_prefix: $("q-dpre").value.trim() || "homeassistant",
+  };
+  if (body.auth) {
+    body.user = $("q-user").value.trim();
+    if ($("q-pass").value) body.password = $("q-pass").value;
+  } else {
+    body.user = ""; body.password = "";
+  }
+  try {
+    await post("/config/mqtt", body);
+    delete $("q-save").dataset.dirty;
+    say($("q-msg"), body.enabled ? "Saved, connecting" : "Saved, MQTT off", true);
+    setTimeout(loadMqtt, 3000);
+  } catch (e) { say($("q-msg"), e.message, false); }
+};
+
+$("r-tx").onchange = () => { $("r-tx").dataset.dirty = "1"; };
+$("r-save").onclick = async () => {
+  const v = +$("r-tx").value;
+  try {
+    await post("/config/system", { tx_power_dbm: v });
+    delete $("r-tx").dataset.dirty;
+    say($("r-msg"), "Transmit power " + (v ? v + " dBm" : "maximum"), true);
+    refresh();
+  } catch (e) { say($("r-msg"), e.message, false); }
+};
+
+$("c-tz").onchange = () => { $("c-tz").dataset.dirty = 1; };
+$("c-ntp").oninput = () => { $("c-ntp").dataset.dirty = 1; };
+$("c-save").onclick = async () => {
+  const name = $("c-tz").value, ntp = $("c-ntp").value.trim();
+  const body = { ntp_server: ntp };
+  /* A zone the list does not know came from the device and stays as it is. */
+  if (TZ[name]) { body.tz_name = name; body.tz_posix = TZ[name]; }
+  try {
+    await post("/config/system", body);
+    delete $("c-tz").dataset.dirty; delete $("c-ntp").dataset.dirty;
+    tz = name;
+    say($("c-msg"), "Applied: " + (ntp || "built-in servers") + ", " + name, true);
+    refresh(); loadEdges();
+  } catch (e) { say($("c-msg"), e.message, false); }
+};
+
+$("d-save").onclick = async () => {
+  try { await post("/config/device", { name: $("d-name").value });
+        say($("d-msg"), "Saved", true); refresh(); }
+  catch (e) { say($("d-msg"), e.message, false); }
+};
+
+$("a-save").onclick = async () => {
+  try {
+    await post("/config/auth", { user: $("a-user").value, password: $("a-pass").value,
+                                 enabled: !!$("a-pass").value });
+    say($("d-msg"), $("a-pass").value ? "Password protection on" : "Password protection off", true);
+  } catch (e) { say($("d-msg"), e.message, false); }
+};
+
+function otaDone(text, ok) {
+  say($("o-msg"), text, ok, 0);
+  $("o-send").disabled = false;
+}
+
+$("o-send").onclick = async () => {
+  const f = $("o-file").files[0];
+  if (!f) return say($("o-msg"), "Please select a firmware.bin", false);
+  /* The new image goes to the other slot: which slot runs afterwards tells
+     kept from rolled back, even when the version string is the same. */
+  let before = null;
+  try { before = (await api("/ota/status")).partition; } catch (e) {}
+  if (!before) return say($("o-msg"), "Device not reachable, try again", false);
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/api/v1/ota");
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable)
+      say($("o-msg"), "Uploaded: " + ((e.loaded / e.total) * 100).toFixed(0) + " %", true, 0);
+  };
+  xhr.onload = () => {
+    if (xhr.status === 200) {
+      say($("o-msg"), "Installed. The device restarts…", true, 0);
+      confirmUpdate(before);
+    } else {
+      otaDone("Rejected: " + xhr.responseText, false);
+    }
+  };
+  xhr.onerror = () => otaDone("Upload aborted", false);
+  $("o-send").disabled = true;
+  /* Tells the device that this page will confirm the new image once it is
+     back; without it (curl) the device's self-test decides alone. */
+  xhr.setRequestHeader("X-Confirm", "ui");
+  xhr.send(f);
+};
+
+/* After an update: wait for the restart, confirm that this page sees the new
+   image working, then wait for the device's own self-test to keep it. The
+   device sets the time limit (probation.window_s) and rolls back after it. */
+async function confirmUpdate(before) {
+  const t0 = Date.now(), sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
+  /* Until the device has said how long it gives itself (probation.window_s):
+     its longest window, 120 s, plus time for the restart and the last polls. */
+  const MARGIN_S = 30;
+  let limitMs = (120 + MARGIN_S) * 1000, confirmed = false;
+  await sleep(4000);
+  while (Date.now() - t0 < limitMs) {
+    let st = null, up = Infinity;
+    try {
+      up = (await api("/info")).uptime_s;
+      st = await api("/ota/status");
+    } catch (e) { /* still restarting */ }
+    /* Only once it has restarted: until then the old firmware answers. */
+    if (st && up * 1000 < Date.now() - t0) {
+      if (st.partition === before)
+        return otaDone("The new firmware did not pass and the device went back to " + st.version, false);
+      if (!st.pending_verify)
+        return otaDone("Firmware " + st.version + " passed its self-test and is kept", true);
+      const p = st.probation || {};
+      if (p.window_s) limitMs = (p.window_s + MARGIN_S) * 1000;
+      if (!confirmed) {
+        try { await post("/ota/confirm"); confirmed = true; } catch (e) {}
+      }
+      say($("o-msg"), "Firmware " + st.version + " is up" + (confirmed ? " and confirmed" : "") +
+          "; waiting for its self-test" + (p.left_s != null ? " (" + p.left_s + " s left)" : "") + "…", true, 0);
+    }
+    await sleep(2000);
+  }
+  otaDone("No answer from the device. If the new firmware failed, it has rolled back by now", false);
+}
+
+$("x-restart").onclick = () => post("/restart").then(
+  () => say($("x-msg"), "Restarting", true)).catch(() => {});
+
+$("x-reset").onclick = () => {
+  if (!confirm("Erase all settings? WiFi, MQTT and password will be lost.\n\n" +
+               "Meter reading and thresholds are kept."))
+    return;
+  post("/reset").then(() => say($("x-msg"), "Erased, restarting", true)).catch(() => {});
+};
+
+// --------------------------------------------------------------- Start --
+showTab(tabFromHash(), true);
+refresh().then(loadEdges);
+loadMqtt();
+setInterval(refresh, 2000);
+/* The draws list changes at most with every edge; half a minute is fresh
+   enough and keeps a full flash read off every status poll. */
+setInterval(() => { if (tab === "meter" && !document.hidden) loadEdges(); }, 30000);
+</script>
+</body>
+</html>

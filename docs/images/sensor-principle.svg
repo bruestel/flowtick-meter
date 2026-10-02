@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 310" width="900" height="310" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <!-- flowtick-meter: how the reflective sensor reads the scanning disc.
+       Copyright 2026 Jonas Brüstel, SPDX-License-Identifier: Apache-2.0 -->
+  <defs>
+    <linearGradient id="chrome" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4f6f8"/>
+      <stop offset="0.45" stop-color="#c3c9d0"/>
+      <stop offset="0.55" stop-color="#e9edf1"/>
+      <stop offset="1" stop-color="#aeb5bd"/>
+    </linearGradient>
+    <marker id="ir" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d6336c"/>
+    </marker>
+    <marker id="irweak" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#e8a3bd"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="310" rx="14" fill="#ffffff"/>
+
+  <!-- ===== left: two cases, chrome and black ===== -->
+  <g font-size="13" fill="#24292f">
+    <!-- case 1: over chrome -->
+    <g transform="translate(30,30)">
+      <text x="95" y="0" text-anchor="middle" font-weight="600" font-size="14">over the chrome sector</text>
+      <!-- sensor package -->
+      <rect x="35" y="18" width="120" height="44" rx="5" fill="#2b2f36"/>
+      <rect x="47" y="50" width="34" height="16" rx="3" fill="#3d6fb6"/>
+      <rect x="109" y="50" width="34" height="16" rx="3" fill="#1d1f23"/>
+      <text x="64" y="38" text-anchor="middle" fill="#ffffff" font-size="11">IR LED</text>
+      <text x="126" y="38" text-anchor="middle" fill="#ffffff" font-size="11">photo-</text>
+      <text x="126" y="51" text-anchor="middle" fill="#ffffff" font-size="11">transistor</text>
+      <!-- rays -->
+      <line x1="64" y1="68" x2="93" y2="132" stroke="#d6336c" stroke-width="3" marker-end="url(#ir)"/>
+      <line x1="97" y1="132" x2="124" y2="72" stroke="#d6336c" stroke-width="3" marker-end="url(#ir)"/>
+      <!-- window -->
+      <rect x="0" y="112" width="190" height="10" fill="#dbeafe" stroke="#93b4dd"/>
+      <text x="186" y="109" text-anchor="end" font-size="10" fill="#57606a">window</text>
+      <!-- disc -->
+      <rect x="0" y="134" width="190" height="16" rx="3" fill="url(#chrome)" stroke="#8c949c"/>
+      <text x="95" y="174" text-anchor="middle">strong reflection</text>
+      <text x="95" y="192" text-anchor="middle" font-weight="600" fill="#1a7f37">high voltage, ~2.9 V</text>
+    </g>
+    <!-- case 2: over black -->
+    <g transform="translate(250,30)">
+      <text x="95" y="0" text-anchor="middle" font-weight="600" font-size="14">over the black sector</text>
+      <rect x="35" y="18" width="120" height="44" rx="5" fill="#2b2f36"/>
+      <rect x="47" y="50" width="34" height="16" rx="3" fill="#3d6fb6"/>
+      <rect x="109" y="50" width="34" height="16" rx="3" fill="#1d1f23"/>
+      <text x="64" y="38" text-anchor="middle" fill="#ffffff" font-size="11">IR LED</text>
+      <text x="126" y="38" text-anchor="middle" fill="#ffffff" font-size="11">photo-</text>
+      <text x="126" y="51" text-anchor="middle" fill="#ffffff" font-size="11">transistor</text>
+      <line x1="64" y1="68" x2="93" y2="132" stroke="#d6336c" stroke-width="3" marker-end="url(#ir)"/>
+      <line x1="97" y1="132" x2="120" y2="82" stroke="#e8a3bd" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#irweak)"/>
+      <rect x="0" y="112" width="190" height="10" fill="#dbeafe" stroke="#93b4dd"/>
+      <text x="186" y="109" text-anchor="end" font-size="10" fill="#57606a">window</text>
+      <rect x="0" y="134" width="190" height="16" rx="3" fill="#1f2328"/>
+      <text x="95" y="174" text-anchor="middle">light is absorbed</text>
+      <text x="95" y="192" text-anchor="middle" font-weight="600" fill="#0969da">low voltage, ~0.5 V</text>
+    </g>
+  </g>
+
+  <!-- ===== right: the resulting square wave ===== -->
+  <g transform="translate(480,40)" font-size="12" fill="#57606a">
+    <text x="170" y="-10" text-anchor="middle" font-weight="600" font-size="14" fill="#24292f">signal while the disc turns</text>
+    <!-- axes -->
+    <line x1="40" y1="10" x2="40" y2="200" stroke="#8c959f"/>
+    <line x1="40" y1="200" x2="350" y2="200" stroke="#8c959f"/>
+    <text x="34" y="44" text-anchor="end">2.9 V</text>
+    <text x="34" y="174" text-anchor="end">0.5 V</text>
+    <text x="345" y="218" text-anchor="end">time</text>
+    <!-- thresholds -->
+    <line x1="40" y1="70" x2="350" y2="70" stroke="#cf222e" stroke-dasharray="5 4"/>
+    <line x1="40" y1="125" x2="350" y2="125" stroke="#0969da" stroke-dasharray="5 4"/>
+    <text x="352" y="74" fill="#cf222e">upper</text>
+    <text x="352" y="129" fill="#0969da">lower</text>
+    <!-- edges -->
+    <g stroke="#1a7f37" stroke-width="1.5">
+      <line x1="110" y1="10" x2="110" y2="200"/>
+      <line x1="185" y1="10" x2="185" y2="200"/>
+      <line x1="260" y1="10" x2="260" y2="200"/>
+      <line x1="335" y1="10" x2="335" y2="200"/>
+    </g>
+    <!-- trace -->
+    <path d="M40,170 L104,170 Q110,170 112,150 L112,60 Q114,40 120,40 L180,40 Q185,40 187,60 L187,150 Q189,170 195,170 L254,170 Q260,170 262,150 L262,60 Q264,40 270,40 L330,40 Q335,40 337,60 L337,150 Q339,170 345,170 L350,170"
+          fill="none" stroke="#2563eb" stroke-width="3" stroke-linejoin="round"/>
+    <text x="147" y="236" text-anchor="middle" fill="#1a7f37" font-weight="600">every edge = a fixed volume</text>
+    <text x="147" y="254" text-anchor="middle" fill="#1a7f37">Allmess: 0.5 L, 2 edges per revolution</text>
+  </g>
+</svg>

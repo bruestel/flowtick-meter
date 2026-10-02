@@ -1,0 +1,77 @@
+# sdkconfig defaults. PlatformIO generates sdkconfig.<env> from these; that
+# generated file is deliberately in .gitignore.
+
+# --- Flash ---------------------------------------------------------------
+# The ESP32-C6 Super Mini has 4 MB. Must be set explicitly: the ESP-IDF default is
+# 2 MB, which silently contradicts a partition table reaching to 0x400000.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_OFFSET=0x8000
+
+# --- Toolchain ---------------------------------------------------------------
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+CONFIG_COMPILER_CXX_EXCEPTIONS=n
+CONFIG_COMPILER_CXX_RTTI=n
+
+# --- Console -----------------------------------------------------------------
+# Route the console over native USB-Serial-JTAG so UART0 stays free.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# --- FreeRTOS ----------------------------------------------------------------
+# Not optional: the sampler task runs on vTaskDelayUntil at 10 ms. With the
+# default of 100 Hz (10 ms tick) the sample period would equal the tick
+# resolution -- the jitter would then be 100 %.
+CONFIG_FREERTOS_HZ=1000
+
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144
+CONFIG_ESP_TASK_WDT_INIT=y
+
+# --- OTA ---------------------------------------------------------------------
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# --- Logging -----------------------------------------------------------------
+# The maximum matches the default: there is no runtime switch to raise it, so
+# compiling DEBUG strings in would be flash spent on lines that can never be
+# printed. Debugging means rebuilding with this raised, which is what somebody
+# attaching a serial cable is doing anyway.
+CONFIG_LOG_MAXIMUM_LEVEL_INFO=y
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+
+# --- Coredump ----------------------------------------------------------------
+CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
+CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF=y
+
+# --- HTTP server -------------------------------------------------------------
+# The WebSocket carries the live scope.
+CONFIG_HTTPD_WS_SUPPORT=y
+# Since IDF 6 the URI handler is no longer called after a WebSocket handshake
+# (httpd_uri.c: "If the request is websocket handshake, then do not call the
+# uri->handler"). This callback runs before the 101 goes out and is therefore
+# the only remaining point at which an upgrade can be refused -- which makes it
+# the only place left to authenticate the live scope.
+CONFIG_HTTPD_WS_PRE_HANDSHAKE_CB_SUPPORT=y
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+CONFIG_LWIP_MAX_SOCKETS=13
+
+# --- Clock ---------------------------------------------------------------------
+# Two SNTP slots: the server from the settings and a built-in fallback
+# behind it (app_net). The router's DHCP-supplied server is not used, so the
+# one in the settings is the one that counts.
+CONFIG_LWIP_SNTP_MAX_SERVERS=2
+
+# --- Diagnostics --------------------------------------------------------------
+# Stack headroom per task, so a task creeping towards its limit is visible long
+# before it overflows. At the meter there is no console to notice it on.
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+# Watch the main loop, not just the idle tasks: a loop that stops running leaves
+# a device that looks alive but does nothing, which is worse than a reboot.
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=15
+# Without this the watchdog only prints a warning and the device stays hung --
+# verified by deliberately hanging the main loop, which produced a message every
+# 15 s and no recovery. A panic reboots and records a core dump, which is the
+# whole point at a meter nobody watches.
+CONFIG_ESP_TASK_WDT_EN=y
+CONFIG_ESP_TASK_WDT_PANIC=y

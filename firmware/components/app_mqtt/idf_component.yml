@@ -1,0 +1,6 @@
+## ESP-IDF 6.0 bundles neither of these any more: cJSON and esp-mqtt are both
+## managed components now. The in-tree components/mqtt directory that remains
+## holds only test apps, which is why requiring it by name fails without this.
+dependencies:
+  espressif/cjson: "^1.7.18"
+  espressif/mqtt: "^1.1.0"

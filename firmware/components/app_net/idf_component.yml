@@ -1,0 +1,3 @@
+## mDNS is a managed component; ESP-IDF does not bundle it.
+dependencies:
+  espressif/mdns: "^1.8.0"

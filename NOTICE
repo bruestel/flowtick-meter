@@ -1,0 +1,9 @@
+flowtick-meter
+Copyright 2026 Jonas Brüstel
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+It covers the firmware source, the CAD models, the documentation and the
+images in this repository.
+
+Firmware images built from this source also contain ESP-IDF and other
+third-party components under their own licences; see THIRD-PARTY-NOTICES.md.

@@ -1,0 +1,14 @@
+# flowtick-meter -- 4 MB flash, two OTA slots (rollback needs both).
+#
+# No SPIFFS: there are no user files to store. The space goes to the coredump
+# and to the edge log, an append-only ring written by components/edgelog --
+# see there for why it does not wear out the flash. The rest stays in reserve.
+#
+# Name,     Type, SubType,  Offset,   Size,     Flags
+nvs,        data, nvs,      0x9000,   0x6000,
+otadata,    data, ota,      0xf000,   0x2000,
+phy_init,   data, phy,      0x11000,  0x1000,
+ota_0,      app,  ota_0,    0x20000,  0x1B0000,
+ota_1,      app,  ota_1,    0x1D0000, 0x1B0000,
+edgelog,    data, 0x40,     0x380000, 0x40000,
+coredump,   data, coredump, 0x3F0000, 0x10000,
